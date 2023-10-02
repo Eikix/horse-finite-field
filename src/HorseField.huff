@@ -1,0 +1,124 @@
+/* Interface */
+// Naming those with FF prefix to not collide with add, mul, etc. reserved words
+#define function FFAdd(uint64, uint64) view returns (uint64)
+#define function FFSub(uint64, uint64) view returns (uint64)
+#define function FFNeg(uint64) view returns (uint64)
+#define function FFMul(uint64, uint64) view returns (uint64)
+#define function FFPow(uint64, uint64) view returns (uint64)
+#define function FFInverse(uint64) view returns (uint64)
+#define function FFDiv(uint64, uint64) view returns (uint64)
+
+/* Storage Slots */
+// The prime for all the finite field operations
+#define constant MODULUS = 0xD
+
+/* Methods */
+#define macro ADD() = takes (0) returns (0) {
+    [MODULUS]    // [MODULUS]
+
+    // @dev We suppose here that the function is defined as add(a, b) := a - b % MODULUS
+    // `uint64 a` will be the first argument in the calldata, and `uint64 b` the second
+    0x04 calldataload 0xc0 shr   // [MODULUS, a]
+    0x0C calldataload 0xc0 shr // [b, a, MODULUS]
+
+    // Utilise addmod opcode
+    addmod              // [b + a % MODULUS]
+    0x00 mstore // []
+    0x20 0x00 return
+}
+
+
+
+// If a >= b, then compute a - b using the SUB evm opcode
+// If a < b, then compute MODULUS - (b - a)
+// For example, for a = 6, b = 9, 6 - 9 = - 3 := MODULUS - 3 = MODULUS - (9 - 6)
+#define macro SUB() = takes (0) returns (0) {
+
+    // @dev We suppose here that the function is defined as sub(a, b) := a - b
+    // `uint64 a` will be the first argument in the calldata, and `uint64 b` the second
+    0x04 calldataload 0xc0 shr   // [a]
+    0x0C calldataload 0xc0 shr // [b, a]
+
+    dup1 // [b, b, a]
+    dup3 // [a, b, b, a]
+
+    lt // [a < b, b, a]
+    iszero // [a >= b, b, a]
+    standardSubstraction jumpi // [b, a]
+
+    // Start the non standard flow: a < b:
+    // we compute b - a (> 0)
+    // Then return MODULUS - (b - a) == -(b - a) == a - b % MODULUS
+    sub // [b - a]
+    [MODULUS] // [MODULUS, b - a]
+    sub // [MODULUS - (b - a)]
+    0x00 mstore // []
+    0x20 0x00 return
+
+
+    standardSubstraction:
+        swap1 // [a, b]
+        sub // [a - b]
+        0x00 mstore // []
+        0x20 0x00 return
+}
+
+#define macro NEG() = takes (0) returns (0) {
+    // @dev We suppose here that the function is defined as neg(a) := - a := MODULUS - a
+    // `uint64 a` will be the first argument in the calldata
+    0x04 calldataload 0xc0 shr   // [a]
+    [MODULUS] // [MODULUS, a]
+
+    // Utilise addmod opcode
+    sub              // [MODULUS - a]
+    0x00 mstore // []
+    0x20 0x00 return
+}
+
+#define macro MUL() = takes (0) returns (0) {
+    [MODULUS]    // [MODULUS]
+
+    // @dev We suppose here that the function is defined as mul(a, b) := a * b % MODULUS
+    // `uint64 a` will be the first argument in the calldata, and `uint64 b` the second
+    0x04 calldataload 0xc0 shr   // [MODULUS, a]
+    0x0C calldataload 0xc0 shr // [b, a, MODULUS]
+
+    // Utilise addmod opcode
+    mulmod              // [b * a % MODULUS]
+    0x00 mstore // []
+    0x20 0x00 return
+}
+
+#define macro POW() = takes(0) returns(0) {}
+#define macro DIV() = takes(0) returns(0) {}
+#define macro INVERSE() = takes(0) returns(0) {}
+
+#define macro MAIN() = takes (0) returns (0) {
+    // Identify which function is being called.
+    0x00 calldataload 0xE0 shr // [sig]
+    dup1 __FUNC_SIG(FFAdd) eq set jumpi
+    dup1 __FUNC_SIG(FFSub) eq get jumpi
+    dup1 __FUNC_SIG(FFNeg) eq get jumpi
+    dup1 __FUNC_SIG(FFMul) eq get jumpi
+    dup1 __FUNC_SIG(FFPow) eq get jumpi
+    dup1 __FUNC_SIG(FFInverse) eq get jumpi
+    dup1 __FUNC_SIG(FFDiv) eq get jumpi
+
+    0x00 0x00 revert
+
+    ff_add:
+        ADD()
+    ff_sub:
+        SUB()
+    ff_neg:
+        NEG()
+    ff_mul:
+        MUL()
+    ff_pow:
+        POW()
+    ff_inverse:
+        INVERSE()
+    ff_div:
+        DIV()
+
+}

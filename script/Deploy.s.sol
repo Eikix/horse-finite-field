@@ -5,19 +5,21 @@ import "foundry-huff/HuffDeployer.sol";
 import "forge-std/Script.sol";
 
 interface HorseField {
-    function add(uint64, uint64) public view;
+    function FFAdd(uint64, uint64) external view returns (uint64);
 
-    function sub(uint64, uint64) public view;
+    function FFSub(uint64, uint64) external view returns (uint64);
 
-    function mul(uint64, uint64) public view;
+    function FFMul(uint64, uint64) external view returns (uint64);
 
-    function neg(uint64) public view;
+    function FFNeg(uint64) external view returns (uint64);
 
-    function inverse(uint64) public view;
+    function FFInverse(uint64) external view returns (uint64);
 
-    function pow(uint64, uint64) public view;
+    function FFPow(uint64, uint64) external view returns (uint64);
 
-    function div(uint64, uint64) public view;
+    function FFDiv(uint64, uint64) external view returns (uint64);
+
+    function FFGetPrime() external view returns (uint64);
 }
 
 contract Deploy is Script {
